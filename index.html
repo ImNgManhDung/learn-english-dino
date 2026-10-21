@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dino Vocab Shooter — Bắn Khủng Long Học Từ Vựng Tiếng Anh</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <div class="app-container">
+    <!-- Thanh HUD trên cùng -->
+    <header class="hud-bar">
+      <div class="brand">
+        <span class="brand-icon">🦖</span>
+        <div>
+          <h1>DINO VOCAB SHOOTER</h1>
+          <p class="subtitle">Gõ đúng chữ cái tiếng Anh (Hint: X..., B...) để bắn hạ khủng long</p>
+        </div>
+      </div>
+
+      <div class="controls-bar">
+        <label class="control-item">
+          <span>Chủ đề:</span>
+          <select id="topicSelect" aria-label="Chọn chủ đề từ vựng"></select>
+        </label>
+
+        <label class="control-item">
+          <span>Gợi ý (Hint):</span>
+          <select id="hintModeSelect" aria-label="Chọn mức độ gợi ý">
+            <option value="easy">Dễ (B _ N _ _ A)</option>
+            <option value="medium" selected>Vừa (B _ _ A _ _)</option>
+            <option value="hard">Khó (B _ _ _ _ _)</option>
+          </select>
+        </label>
+
+        <button id="btnHint" class="btn btn-warning" title="Mở thêm 1 chữ cái gợi ý (Phím Tab)">
+          💡 Gợi ý chữ <kbd>Tab</kbd>
+        </button>
+
+        <button id="btnUnlock" class="btn btn-secondary" title="Đổi mục tiêu khủng long khác (Phím Esc)">
+          🎯 Đổi mục tiêu <kbd>Esc</kbd>
+        </button>
+
+        <button id="btnNotebook" class="btn btn-info" title="Xem danh sách từ vựng đã bắn">
+          📖 Từ đã học (<span id="learnedCount">0</span>)
+        </button>
+
+        <button id="btnSound" class="btn btn-icon" title="Bật/Tắt âm thanh & giọng đọc">
+          🔊
+        </button>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat-box">
+          <span class="stat-label">ĐIỂM SỐ</span>
+          <span id="scoreValue" class="stat-val score">0</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">COMBO</span>
+          <span id="comboValue" class="stat-val combo">x1</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">ĐỢT (WAVE)</span>
+          <span id="waveValue" class="stat-val wave">1</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">CĂN CỨ</span>
+          <span id="hpValue" class="stat-val hp">❤️❤️❤️❤️❤️</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Khu vực chiến trường Canvas -->
+    <main class="stage-wrapper">
+      <canvas id="gameCanvas" width="1200" height="580"></canvas>
+
+      <!-- Hộp hiển thị Từ Đang Nhắm Bắn (Active Target Box) -->
+      <div id="activeTargetBanner" class="active-target-banner">
+        <div class="target-meaning" id="targetMeaning">
+          ⌨️ Hãy gõ <strong>chữ cái đầu tiên</strong> (hoặc chữ tiếp theo) trên bất kỳ con khủng long nào để khóa mục tiêu!
+        </div>
+        <div class="target-word-slots" id="targetWordSlots"></div>
+      </div>
+
+      <!-- Overlay Màn hình Bắt đầu / Game Over -->
+      <div id="startOverlay" class="overlay active">
+        <div class="modal-card">
+          <div class="modal-badge">🎮 HỌC TỪ VỰNG QUA PHẢN XẠ GÕ PHÍM</div>
+          <h2 id="overlayTitle">Sẵn Sàng Săn Khủng Long?</h2>
+          <p id="overlayDesc">
+            Mỗi con khủng long mang theo <strong>Nghĩa tiếng Việt</strong> và <strong>Từ tiếng Anh ẩn ký tự</strong> (ví dụ: <code>Quả chuối — B _ _ _ _ A</code> hoặc <code>Đàn mộc cầm — X _ _ _ _ _ _ _ _</code>).<br/>
+            Hãy gõ đúng các chữ cái trên bàn phím để bắn tia Plasma tiêu diệt chúng và nghe phát âm chuẩn!
+          </p>
+
+          <div class="how-to-grid">
+            <div class="how-item">
+              <span class="how-icon">⌨️</span>
+              <div>
+                <strong>Gõ A - Z</strong>
+                <p>Khóa khủng long & bắn từng chữ cái</p>
+              </div>
+            </div>
+            <div class="how-item">
+              <span class="how-icon">💡</span>
+              <div>
+                <strong>Phím Tab</strong>
+                <p>Mở 1 chữ cái đang ẩn nếu bí từ</p>
+              </div>
+            </div>
+            <div class="how-item">
+              <span class="how-icon">🔄</span>
+              <div>
+                <strong>Phím Esc / Backspace</strong>
+                <p>Bỏ khóa để bắn con khủng long gần hơn</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="overlay-actions">
+            <button id="btnStartGame" class="btn btn-primary btn-lg">
+              🚀 BẮT ĐẦU CHƠI NGAY
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Sổ tay Từ vựng đã học -->
+      <div id="notebookModal" class="overlay">
+        <div class="modal-card notebook-card">
+          <div class="notebook-header">
+            <h3>📖 Sổ Tay Từ Vựng Đã Chinh Phục</h3>
+            <button id="btnCloseNotebook" class="btn btn-secondary">Đóng ✕</button>
+          </div>
+          <p class="notebook-sub">Bấm vào nút 🔊 để nghe lại phát âm chuẩn tiếng Anh.</p>
+          <div id="notebookList" class="notebook-list"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="./js/game.js"></script>
+</body>
+</html>
