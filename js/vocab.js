@@ -1,13 +1,13 @@
 // Kho từ vựng tiếng Anh thông dụng theo chủ đề & Thuật toán tạo Hint (X..., B...)
 
 export const VOCAB_TOPICS = [
-  { id: 'all', name: 'Tất cả chủ đề (All)', icon: '🌍' },
-  { id: 'animals', name: 'Động vật & Tự nhiên', icon: '🦖' },
-  { id: 'food', name: 'Ẩm thực & Trái cây', icon: '🍌' },
-  { id: 'actions', name: 'Hành động hàng ngày', icon: '⚡' },
-  { id: 'school', name: 'Học tập & Công việc', icon: '📚' },
-  { id: 'tech', name: 'Công nghệ & Đời sống', icon: '💻' },
-  { id: 'adjectives', name: 'Tính từ & Cảm xúc', icon: '✨' }
+  { id: 'all', name: 'ALL SECTORS // Tất cả chủ đề', icon: '' },
+  { id: 'animals', name: 'BIO-FAUNA // Động vật & Tự nhiên', icon: '' },
+  { id: 'food', name: 'NUTRITION // Ẩm thực & Trái cây', icon: '' },
+  { id: 'actions', name: 'KINETICS // Hành động hàng ngày', icon: '' },
+  { id: 'school', name: 'ACADEMY // Học tập & Công việc', icon: '' },
+  { id: 'tech', name: 'CYBERNETICS // Công nghệ & Đời sống', icon: '' },
+  { id: 'adjectives', name: 'SYNAPSE // Tính từ & Cảm xúc', icon: '' }
 ];
 
 export const VOCAB_LIST = [

@@ -1,4 +1,4 @@
-// Các thực thể trong game: Xạ thủ (Turret), Khủng long (Dinosaur), Đạn (Bullet), Hạt nổ (Particle)
+// Thực thể Đồ họa Cyber-Jurassic Hologram: Mecha-Turret, Cyber-Dinosaur, Railgun Beam, Shockwave, Particle
 import { generateHintIndices, formatMaskedWord } from './vocab.js';
 
 export class Turret {
@@ -6,73 +6,122 @@ export class Turret {
     this.x = x;
     this.y = y;
     this.angle = 0;
+    this.targetAngle = 0;
     this.recoil = 0;
     this.muzzleFlash = 0;
+    this.ringAngle = 0;
   }
 
   aimAt(targetX, targetY) {
-    this.angle = Math.atan2(targetY - this.y, targetX - this.x);
+    this.targetAngle = Math.atan2(targetY - this.y, targetX - this.x);
+    this.angle = this.targetAngle;
   }
 
   triggerShot() {
-    this.recoil = 10;
+    this.recoil = 12;
     this.muzzleFlash = 1.0;
   }
 
   update(dt) {
-    if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt * 45);
-    if (this.muzzleFlash > 0) this.muzzleFlash = Math.max(0, this.muzzleFlash - dt * 8);
+    this.ringAngle += dt * 1.4;
+    if (this.recoil > 0) this.recoil = Math.max(0, this.recoil - dt * 55);
+    if (this.muzzleFlash > 0) this.muzzleFlash = Math.max(0, this.muzzleFlash - dt * 9);
   }
 
   draw(ctx) {
     ctx.save();
     ctx.translate(this.x, this.y);
 
-    // Đế pháo đài năng lượng
-    const grad = ctx.createRadialGradient(0, 0, 8, 0, 0, 44);
-    grad.addColorStop(0, '#38bdf8');
-    grad.addColorStop(0.6, '#0284c7');
-    grad.addColorStop(1, 'rgba(2, 132, 199, 0)');
-    ctx.fillStyle = grad;
+    // Hào quang năng lượng dưới chân tháp pháo
+    const aura = ctx.createRadialGradient(0, 0, 10, 0, 0, 62);
+    aura.addColorStop(0, 'rgba(34, 211, 238, 0.35)');
+    aura.addColorStop(0.55, 'rgba(59, 130, 246, 0.12)');
+    aura.addColorStop(1, 'rgba(34, 211, 238, 0)');
+    ctx.fillStyle = aura;
     ctx.beginPath();
-    ctx.arc(0, 0, 44, 0, Math.PI * 2);
+    ctx.arc(0, 0, 62, 0, Math.PI * 2);
     ctx.fill();
 
-    // Thân tháp pháo
-    ctx.fillStyle = '#1e293b';
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 3;
+    // Vòng Radar xoay ngoài
+    ctx.save();
+    ctx.rotate(this.ringAngle);
+    ctx.strokeStyle = 'rgba(34, 211, 238, 0.45)';
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([12, 8, 4, 8]);
     ctx.beginPath();
-    ctx.arc(0, 0, 26, 0, Math.PI * 2);
+    ctx.arc(0, 0, 44, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Đế Lục Giác Cơ Giới
+    ctx.fillStyle = '#091024';
+    ctx.strokeStyle = '#22d3ee';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3;
+      const px = Math.cos(a) * 30;
+      const py = Math.sin(a) * 30;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    // Xoay nòng súng theo hướng khủng long đang khóa
+    // Xoay cụm nòng Railgun Plasma
     ctx.rotate(this.angle);
     const rx = -this.recoil;
 
-    // Nòng súng đôi Plasma
+    // 2 Thanh dẫn hướng Railgun
     ctx.fillStyle = '#0f172a';
-    ctx.strokeStyle = '#7dd3fc';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.8;
+
+    // Nòng trên
     ctx.beginPath();
-    ctx.roundRect(rx + 6, -11, 34, 8, 3);
-    ctx.roundRect(rx + 6, 3, 34, 8, 3);
+    ctx.roundRect(rx + 6, -13, 42, 7, 2);
     ctx.fill();
     ctx.stroke();
 
-    // Lõi năng lượng trung tâm
-    ctx.fillStyle = '#22d3ee';
+    // Nòng dưới
     ctx.beginPath();
-    ctx.arc(rx, 0, 12, 0, Math.PI * 2);
+    ctx.roundRect(rx + 6, 6, 42, 7, 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Lõi khe năng lượng giữa 2 nòng
+    ctx.fillStyle = '#22d3ee';
+    ctx.shadowColor = '#22d3ee';
+    ctx.shadowBlur = 12;
+    ctx.fillRect(rx + 12, -3, 30, 6);
+    ctx.shadowBlur = 0;
+
+    // Thân chụp trung tâm
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(rx * 0.4, 0, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Lõi Reactor phát sáng
+    ctx.fillStyle = '#4ade80';
+    ctx.beginPath();
+    ctx.arc(rx * 0.4, 0, 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // Tia chớp đầu nòng khi bắn
+    // Chớp lửa Plasma ở đầu nòng
     if (this.muzzleFlash > 0) {
-      ctx.fillStyle = `rgba(250, 204, 21, ${this.muzzleFlash})`;
+      ctx.save();
+      ctx.fillStyle = `rgba(34, 211, 238, ${this.muzzleFlash})`;
+      ctx.shadowColor = '#22d3ee';
+      ctx.shadowBlur = 20;
       ctx.beginPath();
-      ctx.arc(rx + 44, 0, 14 * this.muzzleFlash, 0, Math.PI * 2);
+      ctx.arc(rx + 50, 0, 16 * this.muzzleFlash, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
 
     ctx.restore();
@@ -98,40 +147,45 @@ export class Dinosaur {
     this.wave = config.wave || 1;
     this.hintMode = config.hintMode || 'medium';
 
-    // Tiến độ gõ từ
     this.typedIndex = 0;
     this.revealedIndices = generateHintIndices(this.word, this.hintMode, this.wave);
 
-    // Hiệu ứng hoạt ảnh
     this.animTime = Math.random() * 10;
+    this.reticleAngle = 0;
     this.hitFlash = 0;
     this.errorShake = 0;
     this.knockback = 0;
     this.isLocked = false;
     this.dead = false;
 
-    // Màu sắc và kích thước theo chủng loại khủng long
     if (this.type === 'trex') {
-      this.radius = 44;
-      this.primaryColor = '#ef4444';
-      this.secondaryColor = '#991b1b';
-      this.labelOffsetY = -74;
+      this.scale = 1.32;
+      this.radius = 48;
+      this.neonColor = '#f43f5e';
+      this.armorColor = '#1e1b4b';
+      this.labelOffsetY = -88;
+      this.classTag = 'APEX T-REX';
     } else if (this.type === 'triceratops') {
-      this.radius = 34;
-      this.primaryColor = '#f59e0b';
-      this.secondaryColor = '#b45309';
-      this.labelOffsetY = -62;
+      this.scale = 1.08;
+      this.radius = 38;
+      this.neonColor = '#f59e0b';
+      this.armorColor = '#172554';
+      this.labelOffsetY = -74;
+      this.classTag = 'MECHA-TRICERA';
     } else if (this.type === 'ptero') {
-      this.radius = 30;
-      this.primaryColor = '#a855f7';
-      this.secondaryColor = '#6b21a8';
-      this.labelOffsetY = -58;
+      this.scale = 0.98;
+      this.radius = 34;
+      this.neonColor = '#c084fc';
+      this.armorColor = '#1e1b4b';
+      this.labelOffsetY = -70;
+      this.classTag = 'AERO-PTERO';
     } else {
-      // raptor
-      this.radius = 28;
-      this.primaryColor = '#10b981';
-      this.secondaryColor = '#047857';
-      this.labelOffsetY = -56;
+      this.scale = 0.95;
+      this.radius = 32;
+      this.neonColor = '#10b981';
+      this.armorColor = '#0f172a';
+      this.labelOffsetY = -68;
+      this.classTag = 'CYBER-RAPTOR';
     }
   }
 
@@ -153,7 +207,7 @@ export class Dinosaur {
   onHitSuccess() {
     this.typedIndex++;
     this.hitFlash = 1.0;
-    this.knockback = 14;
+    this.knockback = 16;
     if (this.typedIndex >= this.word.length) {
       this.dead = true;
     }
@@ -164,226 +218,386 @@ export class Dinosaur {
   }
 
   update(dt) {
-    this.animTime += dt * 6;
-    if (this.hitFlash > 0) this.hitFlash = Math.max(0, this.hitFlash - dt * 5);
-    if (this.errorShake > 0) this.errorShake = Math.max(0, this.errorShake - dt * 4);
+    this.animTime += dt * 7;
+    this.reticleAngle += dt * 2.5;
+    if (this.hitFlash > 0) this.hitFlash = Math.max(0, this.hitFlash - dt * 5.5);
+    if (this.errorShake > 0) this.errorShake = Math.max(0, this.errorShake - dt * 4.5);
 
-    // Di chuyển về phía pháo đài
     const dx = this.targetX - this.x;
     const dy = this.targetY - this.y;
     const dist = Math.hypot(dx, dy) || 1;
 
-    const currentSpeed = this.speed - this.knockback * 12;
+    const currentSpeed = this.speed - this.knockback * 13;
     if (this.knockback > 0) {
-      this.knockback = Math.max(0, this.knockback - dt * 35);
+      this.knockback = Math.max(0, this.knockback - dt * 38);
     }
 
     this.x += (dx / dist) * currentSpeed * dt;
     this.baseY += (dy / dist) * currentSpeed * dt;
 
-    // Dao động bước đi hoặc bay lượn
     if (this.type === 'ptero') {
-      this.y = this.baseY + Math.sin(this.animTime * 1.2) * 12;
+      this.y = this.baseY + Math.sin(this.animTime * 1.1) * 14;
     } else {
-      this.y = this.baseY + Math.abs(Math.sin(this.animTime * 1.8)) * -6;
+      this.y = this.baseY + Math.abs(Math.sin(this.animTime * 1.6)) * -5;
     }
   }
 
   draw(ctx) {
     ctx.save();
-    const shakeX = this.errorShake > 0 ? Math.sin(this.animTime * 18) * 6 * this.errorShake : 0;
+    const shakeX = this.errorShake > 0 ? Math.sin(this.animTime * 20) * 7 * this.errorShake : 0;
     ctx.translate(this.x + shakeX, this.y);
 
-    // Vòng tròn khóa mục tiêu (Target Lock) dưới chân khủng long
+    // Tâm ngắm xoay tròn Hologram khi bị khóa (Target Lock Reticle)
     if (this.isLocked) {
       ctx.save();
+      ctx.rotate(this.reticleAngle);
       ctx.strokeStyle = '#facc15';
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 8]);
       ctx.beginPath();
-      ctx.arc(0, 6, this.radius + 14, 0, Math.PI * 2);
+      ctx.arc(0, 0, this.radius + 18, 0, Math.PI * 2);
       ctx.stroke();
+
+      // 4 góc khóa mục tiêu
+      ctx.setLineDash([]);
+      for (let i = 0; i < 4; i++) {
+        ctx.rotate(Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(this.radius + 10, 0);
+        ctx.lineTo(this.radius + 22, 0);
+        ctx.stroke();
+      }
       ctx.restore();
     }
 
-    // Bóng đổ dưới đất
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    // Bóng năng lượng dưới mặt đất
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
     ctx.beginPath();
-    ctx.ellipse(0, this.radius - 2, this.radius * 0.85, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, this.radius + 6, this.radius * 0.9, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Vẽ hình khủng long hướng sang trái (về phía căn cứ)
-    this.drawDinoBody(ctx);
+    // Vẽ thân Khủng Long Cơ Giới (Mecha-Dino)
+    ctx.save();
+    ctx.scale(this.scale, this.scale);
+    this.drawMechaDino(ctx);
+    ctx.restore();
 
-    // Vẽ khung Từ vựng & Hint (Nghĩa tiếng Việt + B _ _ _ _ A)
-    this.drawWordPlate(ctx);
+    // Vẽ bảng Hologram Từ vựng & Hint trên đầu
+    this.drawHologramPlate(ctx);
 
     ctx.restore();
   }
 
-  drawDinoBody(ctx) {
-    ctx.save();
-    const bodyColor = this.hitFlash > 0.3 ? '#ffffff' : this.primaryColor;
-    const darkColor = this.hitFlash > 0.3 ? '#bae6fd' : this.secondaryColor;
-    const legSwing = Math.sin(this.animTime * 2) * 6;
+  drawMechaDino(ctx) {
+    const strokeCol = this.hitFlash > 0.25 ? '#ffffff' : this.neonColor;
+    const fillCol = this.hitFlash > 0.25 ? '#38bdf8' : this.armorColor;
+    const stride = Math.sin(this.animTime * 1.8) * 8;
+    const jawAngle = Math.abs(Math.sin(this.animTime * 1.5)) * 0.22;
 
-    // Đuôi khủng long
-    ctx.fillStyle = darkColor;
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = strokeCol;
+    ctx.fillStyle = fillCol;
+
+    // 1. Đuôi cơ giới phân đốt (Segmented Cyber Tail)
     ctx.beginPath();
-    ctx.moveTo(this.radius * 0.5, 4);
-    ctx.lineTo(this.radius * 1.35, -8 + legSwing * 0.5);
-    ctx.lineTo(this.radius * 0.6, 14);
+    ctx.moveTo(14, -2);
+    ctx.lineTo(44, -12 + stride * 0.3);
+    ctx.lineTo(36, 6 + stride * 0.2);
+    ctx.lineTo(12, 10);
     ctx.closePath();
-    ctx.fill();
-
-    // Chân sau & chân trước
-    ctx.fillStyle = darkColor;
-    ctx.beginPath();
-    ctx.roundRect(-10 + legSwing, this.radius * 0.35, 9, 16, 4);
-    ctx.roundRect(6 - legSwing, this.radius * 0.35, 9, 16, 4);
-    ctx.fill();
-
-    // Thân chính
-    ctx.fillStyle = bodyColor;
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(4, 2, this.radius * 0.78, this.radius * 0.58, -0.15, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Gai lưng hoặc cánh (tùy loại khủng long)
-    if (this.type === 'ptero') {
-      const wingY = Math.sin(this.animTime * 3) * 16;
-      ctx.fillStyle = '#c084fc';
+    // 2. Chân sau (Back Leg)
+    ctx.beginPath();
+    ctx.moveTo(6, 10);
+    ctx.lineTo(14 - stride, 24);
+    ctx.lineTo(6 - stride, 32);
+    ctx.lineTo(-4 - stride, 32);
+    ctx.lineTo(0, 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 3. Thân giáp chính (Angular Mecha Torso)
+    ctx.beginPath();
+    ctx.moveTo(-18, -14);
+    ctx.lineTo(16, -10);
+    ctx.lineTo(22, 6);
+    ctx.lineTo(4, 16);
+    ctx.lineTo(-16, 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Gai năng lượng phát sáng dọc sống lưng (Dorsal Neon Spines)
+    ctx.fillStyle = strokeCol;
+    for (let i = 0; i < 3; i++) {
+      const sx = -8 + i * 10;
+      const sy = -13 + i * 1.5;
       ctx.beginPath();
-      ctx.moveTo(0, -4);
-      ctx.lineTo(18, -26 + wingY);
-      ctx.lineTo(24, 4);
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + 5, sy - 9);
+      ctx.lineTo(sx + 8, sy + 1);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Nếu là Pteranodon: vẽ đôi cánh Plasma sải rộng
+    if (this.type === 'ptero') {
+      const wingFlap = Math.sin(this.animTime * 2.6) * 20;
+      ctx.fillStyle = 'rgba(192, 132, 252, 0.32)';
+      ctx.strokeStyle = '#e879f9';
+      ctx.beginPath();
+      ctx.moveTo(-6, -8);
+      ctx.lineTo(16, -34 + wingFlap);
+      ctx.lineTo(30, -6 + wingFlap * 0.4);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
-    } else {
-      ctx.fillStyle = '#fde047';
-      for (let i = -1; i <= 2; i++) {
-        ctx.beginPath();
-        ctx.moveTo(i * 9, -this.radius * 0.45);
-        ctx.lineTo(i * 9 + 5, -this.radius * 0.72);
-        ctx.lineTo(i * 9 + 10, -this.radius * 0.4);
-        ctx.closePath();
-        ctx.fill();
-      }
     }
 
-    // Đầu khủng long (hướng sang trái)
-    ctx.fillStyle = bodyColor;
+    // 4. Chân trước (Front Leg)
+    ctx.fillStyle = fillCol;
+    ctx.strokeStyle = strokeCol;
     ctx.beginPath();
-    ctx.roundRect(-this.radius * 1.05, -this.radius * 0.68, this.radius * 0.85, this.radius * 0.62, 10);
+    ctx.moveTo(-8, 12);
+    ctx.lineTo(-4 + stride, 25);
+    ctx.lineTo(-12 + stride, 32);
+    ctx.lineTo(-20 + stride, 32);
+    ctx.lineTo(-14, 12);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    // Sừng nếu là Triceratops hoặc Vương miện nếu là T-Rex Boss
+    // Lõi Reactor ngực khủng long
+    ctx.fillStyle = strokeCol;
+    ctx.beginPath();
+    ctx.arc(-4, 2, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 5. Đầu & Hàm Cơ Giới (Mecha Skull & Articulated Jaw)
+    ctx.save();
+    ctx.translate(-18, -12);
+
+    // Sừng nếu là Triceratops
     if (this.type === 'triceratops') {
-      ctx.fillStyle = '#fef08a';
+      ctx.fillStyle = '#fde047';
       ctx.beginPath();
-      ctx.moveTo(-this.radius * 0.95, -this.radius * 0.45);
-      ctx.lineTo(-this.radius * 1.35, -this.radius * 0.75);
-      ctx.lineTo(-this.radius * 0.8, -this.radius * 0.3);
-      ctx.closePath();
-      ctx.fill();
-    } else if (this.type === 'trex') {
-      ctx.fillStyle = '#facc15';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('👑', -this.radius * 0.6, -this.radius * 0.78);
-    }
-
-    // Mắt khủng long
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(-this.radius * 0.68, -this.radius * 0.42, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#0f172a';
-    ctx.beginPath();
-    ctx.arc(-this.radius * 0.72, -this.radius * 0.42, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Răng nanh
-    ctx.fillStyle = '#ffffff';
-    for (let t = 0; t < 3; t++) {
-      ctx.beginPath();
-      ctx.moveTo(-this.radius * 0.95 + t * 6, -this.radius * 0.08);
-      ctx.lineTo(-this.radius * 0.92 + t * 6, -this.radius * 0.08 + 5);
-      ctx.lineTo(-this.radius * 0.89 + t * 6, -this.radius * 0.08);
+      ctx.moveTo(-14, -4);
+      ctx.lineTo(-32, -14);
+      ctx.lineTo(-16, 2);
       ctx.closePath();
       ctx.fill();
     }
+
+    // Hộp sọ trên
+    ctx.fillStyle = fillCol;
+    ctx.strokeStyle = strokeCol;
+    ctx.beginPath();
+    ctx.moveTo(4, -10);
+    ctx.lineTo(-18, -8);
+    ctx.lineTo(-26, 0);
+    ctx.lineTo(-18, 4);
+    ctx.lineTo(4, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Hàm dưới cử động
+    ctx.save();
+    ctx.rotate(-jawAngle);
+    ctx.beginPath();
+    ctx.moveTo(0, 4);
+    ctx.lineTo(-22, 4);
+    ctx.lineTo(-18, 10);
+    ctx.lineTo(2, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Mắt Laser phát sáng
+    ctx.fillStyle = '#facc15';
+    ctx.shadowColor = '#facc15';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(-12, -4);
+    ctx.lineTo(-6, -5);
+    ctx.lineTo(-8, -1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
 
     ctx.restore();
   }
 
-  drawWordPlate(ctx) {
+  drawHologramPlate(ctx) {
     const maskedChars = formatMaskedWord(this.word, this.typedIndex, this.revealedIndices);
-    const charSlotWidth = 18;
-    const wordWidth = maskedChars.length * charSlotWidth;
-    const meaningText = `${this.meaning} (${this.pos})`;
+    const slotW = 20;
+    const slotGap = 3;
+    const totalWordW = maskedChars.length * (slotW + slotGap) - slotGap;
 
-    ctx.font = '600 13px "Inter", system-ui, sans-serif';
-    const meaningWidth = ctx.measureText(meaningText).width;
+    const meaningStr = `${this.meaning.toUpperCase()} [${this.pos.toUpperCase()}]`;
+    ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
+    const meaningW = ctx.measureText(meaningStr).width;
 
-    const plateWidth = Math.max(wordWidth + 26, meaningWidth + 24, 120);
-    const plateHeight = 54;
-    const plateX = -plateWidth / 2;
-    const plateY = this.labelOffsetY - plateHeight / 2;
+    const plateW = Math.max(totalWordW + 28, meaningW + 34, 136);
+    const plateH = 58;
+    const px = -plateW / 2;
+    const py = this.labelOffsetY - plateH / 2;
 
-    // Khung nền hiển thị Nghĩa tiếng Việt + Hint
-    ctx.fillStyle = this.isLocked ? 'rgba(15, 23, 42, 0.95)' : 'rgba(15, 23, 42, 0.86)';
+    // Nền kính Hologram vát góc
+    ctx.save();
+    ctx.fillStyle = this.isLocked ? 'rgba(6, 12, 30, 0.94)' : 'rgba(9, 15, 32, 0.86)';
     ctx.strokeStyle = this.errorShake > 0
-      ? '#ef4444'
+      ? '#f43f5e'
       : this.isLocked
       ? '#facc15'
-      : '#38bdf8';
-    ctx.lineWidth = this.isLocked ? 2.5 : 1.5;
+      : this.neonColor;
+    ctx.lineWidth = this.isLocked ? 2.2 : 1.4;
+
+    if (this.isLocked) {
+      ctx.shadowColor = 'rgba(250, 204, 21, 0.35)';
+      ctx.shadowBlur = 14;
+    }
 
     ctx.beginPath();
-    ctx.roundRect(plateX, plateY, plateWidth, plateHeight, 10);
+    ctx.roundRect(px, py, plateW, plateH, 10);
     ctx.fill();
     ctx.stroke();
+    ctx.shadowBlur = 0;
 
-    // Dòng 1: Nghĩa tiếng Việt (VD: "Quả chuối (n)")
+    // Thanh tiến độ giải mã từ vựng ở đáy thẻ
+    const progress = this.typedIndex / this.word.length;
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.18)';
+    ctx.fillRect(px + 8, py + plateH - 5, plateW - 16, 2.5);
+    if (progress > 0) {
+      ctx.fillStyle = '#4ade80';
+      ctx.fillRect(px + 8, py + plateH - 5, (plateW - 16) * progress, 2.5);
+    }
+
+    // Dòng 1: Nghĩa tiếng Việt
     ctx.fillStyle = this.isLocked ? '#fef08a' : '#e2e8f0';
-    ctx.font = '600 13px "Inter", system-ui, sans-serif';
+    ctx.font = '700 11.5px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(meaningText, 0, plateY + 16);
+    ctx.fillText(meaningStr, 0, py + 15);
 
-    // Dòng 2: Từ tiếng Anh dạng Hint (VD: B _ _ _ _ A)
-    const startX = -((maskedChars.length - 1) * charSlotWidth) / 2;
-    const charY = plateY + 38;
+    // Dòng 2: Các ô phím ký tự (B _ _ _ _ A)
+    const startX = -totalWordW / 2;
+    const slotY = py + 26;
 
-    ctx.font = '800 16px "JetBrains Mono", "Courier New", monospace';
+    ctx.font = '800 14px "JetBrains Mono", monospace';
     maskedChars.forEach((item, idx) => {
-      const cx = startX + idx * charSlotWidth;
+      const sx = startX + idx * (slotW + slotGap);
 
-      // Đánh dấu vị trí ký tự tiếp theo cần gõ
-      if (item.isNext && this.isLocked) {
-        ctx.fillStyle = 'rgba(250, 204, 21, 0.22)';
-        ctx.beginPath();
-        ctx.roundRect(cx - 7, charY - 11, 14, 20, 3);
-        ctx.fill();
-      }
-
+      // Nền từng ô ký tự
       if (item.state === 'typed') {
-        ctx.fillStyle = '#4ade80'; // Xanh lá sáng cho chữ đã bắn trúng
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.28)';
+        ctx.strokeStyle = '#4ade80';
+      } else if (item.isNext && this.isLocked) {
+        ctx.fillStyle = 'rgba(250, 204, 21, 0.25)';
+        ctx.strokeStyle = '#facc15';
       } else if (item.state === 'hint') {
-        ctx.fillStyle = item.isNext ? '#facc15' : '#38bdf8'; // Vàng/Xanh dương cho chữ gợi ý sẵn (X..., B...)
+        ctx.fillStyle = 'rgba(34, 211, 238, 0.15)';
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.55)';
       } else {
-        ctx.fillStyle = item.isNext ? '#fde047' : '#94a3b8'; // Dấu gạch dưới _
+        ctx.fillStyle = 'rgba(30, 41, 59, 0.75)';
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
       }
 
-      ctx.fillText(item.display, cx, charY);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.roundRect(sx, slotY, slotW, 22, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Chữ cái bên trong ô
+      if (item.state === 'typed') {
+        ctx.fillStyle = '#4ade80';
+      } else if (item.isNext && this.isLocked) {
+        ctx.fillStyle = '#fde047';
+      } else if (item.state === 'hint') {
+        ctx.fillStyle = '#22d3ee';
+      } else {
+        ctx.fillStyle = '#64748b';
+      }
+
+      ctx.fillText(item.display, sx + slotW / 2, slotY + 11.5);
     });
+
+    ctx.restore();
+  }
+}
+
+export class LaserBeam {
+  constructor(x1, y1, x2, y2, color = '#22d3ee') {
+    this.x1 = x1;
+    this.y1 = y1;
+    this.x2 = x2;
+    this.y2 = y2;
+    this.color = color;
+    this.life = 1.0;
+  }
+
+  update(dt) {
+    this.life -= dt * 7.5;
+  }
+
+  draw(ctx) {
+    if (this.life <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life);
+
+    // Tia sáng rộng bên ngoài
+    ctx.strokeStyle = this.color;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 16;
+    ctx.lineWidth = 6 * this.life;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(this.x1, this.y1);
+    ctx.lineTo(this.x2, this.y2);
+    ctx.stroke();
+
+    // Lõi trắng cường độ cao
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2 * this.life;
+    ctx.beginPath();
+    ctx.moveTo(this.x1, this.y1);
+    ctx.lineTo(this.x2, this.y2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
+export class Shockwave {
+  constructor(x, y, color = '#22d3ee') {
+    this.x = x;
+    this.y = y;
+    this.color = color;
+    this.radius = 10;
+    this.maxRadius = 78;
+    this.life = 1.0;
+  }
+
+  update(dt) {
+    this.radius += (this.maxRadius - this.radius) * dt * 8;
+    this.life -= dt * 2.6;
+  }
+
+  draw(ctx) {
+    if (this.life <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life);
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = 3 * this.life;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -393,7 +607,7 @@ export class Bullet {
     this.y = startY;
     this.target = targetDino;
     this.charHit = charHit;
-    this.speed = 920;
+    this.speed = 1150;
     this.done = false;
   }
 
@@ -406,7 +620,7 @@ export class Bullet {
     const dy = this.target.y - this.y;
     const dist = Math.hypot(dx, dy);
 
-    if (dist < 24) {
+    if (dist < 28) {
       this.done = true;
       return;
     }
@@ -417,19 +631,12 @@ export class Bullet {
 
   draw(ctx) {
     ctx.save();
-    ctx.fillStyle = '#facc15';
-    ctx.shadowColor = '#38bdf8';
-    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#22d3ee';
+    ctx.shadowColor = '#22d3ee';
+    ctx.shadowBlur = 12;
     ctx.beginPath();
-    ctx.arc(this.x, this.y, 6, 0, Math.PI * 2);
+    ctx.arc(this.x, this.y, 5, 0, Math.PI * 2);
     ctx.fill();
-
-    if (this.charHit) {
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 11px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(this.charHit, this.x, this.y - 10);
-    }
     ctx.restore();
   }
 }
@@ -439,19 +646,19 @@ export class Particle {
     this.x = x;
     this.y = y;
     const angle = Math.random() * Math.PI * 2;
-    const speed = 40 + Math.random() * 180;
+    const speed = 50 + Math.random() * 220;
     this.vx = Math.cos(angle) * speed;
     this.vy = Math.sin(angle) * speed;
     this.life = 1.0;
-    this.decay = 1.4 + Math.random() * 1.2;
-    this.size = 3 + Math.random() * 5;
+    this.decay = 1.5 + Math.random() * 1.4;
+    this.size = 2.5 + Math.random() * 4.5;
     this.color = color;
   }
 
   update(dt) {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-    this.vy += 120 * dt; // Trọng lực nhẹ
+    this.vy += 90 * dt;
     this.life -= this.decay * dt;
   }
 
@@ -460,6 +667,8 @@ export class Particle {
     ctx.save();
     ctx.globalAlpha = Math.max(0, this.life);
     ctx.fillStyle = this.color;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 8;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
     ctx.fill();
@@ -478,8 +687,8 @@ export class FloatingText {
   }
 
   update(dt) {
-    this.y -= 38 * dt;
-    this.life -= dt * 0.85;
+    this.y -= 42 * dt;
+    this.life -= dt * 0.82;
   }
 
   draw(ctx) {
@@ -489,12 +698,15 @@ export class FloatingText {
     ctx.textAlign = 'center';
 
     ctx.fillStyle = this.color;
-    ctx.font = '800 18px "Inter", sans-serif';
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 10;
+    ctx.font = '800 17px "Orbitron", sans-serif';
     ctx.fillText(this.text, this.x, this.y);
+    ctx.shadowBlur = 0;
 
     if (this.subtext) {
       ctx.fillStyle = '#fef08a';
-      ctx.font = '600 13px "Inter", sans-serif';
+      ctx.font = '600 12.5px "Plus Jakarta Sans", sans-serif';
       ctx.fillText(this.subtext, this.x, this.y + 18);
     }
     ctx.restore();

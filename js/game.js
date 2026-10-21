@@ -1,7 +1,7 @@
-// Vòng lặp chính & điều khiển trò chơi Dino Vocab Shooter
+// Vòng lặp chính & điều khiển trò chơi JURASSIC.AI // Cyber-Dino Vocab Defense
 import { VOCAB_TOPICS, getWordsByTopic, formatMaskedWord, generateHintIndices } from './vocab.js';
 import { SoundManager } from './sound.js';
-import { Turret, Dinosaur, Bullet, Particle, FloatingText } from './entities.js';
+import { Turret, Dinosaur, LaserBeam, Shockwave, Bullet, Particle, FloatingText } from './entities.js';
 
 class DinoVocabGame {
   constructor() {
@@ -9,7 +9,6 @@ class DinoVocabGame {
     this.ctx = this.canvas.getContext('2d');
     this.sound = new SoundManager();
 
-    // Trạng thái game
     this.state = 'MENU'; // 'MENU' | 'PLAYING' | 'PAUSED' | 'GAMEOVER'
     this.score = 0;
     this.combo = 1;
@@ -20,31 +19,36 @@ class DinoVocabGame {
     this.hp = 5;
     this.maxHp = 5;
 
-    // Cấu hình người dùng chọn
+    // Thống kê độ chính xác (Accuracy)
+    this.totalKeystrokes = 0;
+    this.correctKeystrokes = 0;
+
     this.selectedTopic = 'all';
     this.hintMode = 'medium';
 
-    // Thực thể trong màn chơi
-    this.turret = new Turret(95, this.canvas.height / 2 + 25);
+    this.turret = new Turret(105, this.canvas.height / 2 + 25);
     this.dinos = [];
+    this.beams = [];
+    this.shockwaves = [];
     this.bullets = [];
     this.particles = [];
     this.floatingTexts = [];
     this.lockedDino = null;
 
-    // Bộ đếm sinh khủng long
     this.spawnTimer = 0;
-    this.spawnInterval = 3.2;
+    this.spawnInterval = 3.1;
+    this.gridOffset = 0;
+    this.screenShake = 0;
 
-    // Sổ tay từ vựng đã bắn hạ
     this.learnedWords = new Map();
 
-    // Ngôi sao nền
-    this.stars = Array.from({ length: 45 }, () => ({
+    // Hạt bụi năng lượng lơ lửng trong không gian
+    this.stars = Array.from({ length: 55 }, () => ({
       x: Math.random() * this.canvas.width,
-      y: Math.random() * (this.canvas.height * 0.55),
-      r: 1 + Math.random() * 1.8,
-      alpha: 0.3 + Math.random() * 0.7
+      y: Math.random() * (this.canvas.height * 0.62),
+      r: 0.8 + Math.random() * 1.8,
+      alpha: 0.2 + Math.random() * 0.75,
+      speed: 4 + Math.random() * 10
     }));
 
     this.lastTime = performance.now();
@@ -58,7 +62,7 @@ class DinoVocabGame {
     VOCAB_TOPICS.forEach(t => {
       const opt = document.createElement('option');
       opt.value = t.id;
-      opt.textContent = `${t.icon} ${t.name}`;
+      opt.textContent = t.name;
       topicSelect.appendChild(opt);
     });
 
@@ -67,17 +71,39 @@ class DinoVocabGame {
       e.target.blur();
     });
 
+    // Segmented Pills cho Hint Mode (EASY / MEDIUM / HARD)
+    const hintGroup = document.getElementById('hintModeGroup');
     const hintSelect = document.getElementById('hintModeSelect');
-    hintSelect.addEventListener('change', e => {
-      this.hintMode = e.target.value;
-      // Cập nhật lại hint cho các khủng long đang trên màn hình
+
+    const applyHintMode = mode => {
+      this.hintMode = mode;
+      if (hintSelect) hintSelect.value = mode;
+      if (hintGroup) {
+        hintGroup.querySelectorAll('.seg-pill').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.hint === mode);
+        });
+      }
       this.dinos.forEach(d => {
         d.hintMode = this.hintMode;
         d.revealedIndices = generateHintIndices(d.word, this.hintMode, this.wave);
       });
       this.updateActiveTargetBanner();
-      e.target.blur();
-    });
+    };
+
+    if (hintGroup) {
+      hintGroup.querySelectorAll('.seg-pill').forEach(btn => {
+        btn.addEventListener('click', e => {
+          applyHintMode(btn.dataset.hint);
+          e.currentTarget.blur();
+        });
+      });
+    }
+
+    if (hintSelect) {
+      hintSelect.addEventListener('change', e => {
+        applyHintMode(e.target.value);
+      });
+    }
 
     document.getElementById('btnStartGame').addEventListener('click', () => {
       this.startNewGame();
@@ -105,14 +131,21 @@ class DinoVocabGame {
     document.getElementById('btnSound').addEventListener('click', e => {
       this.sound.sfxEnabled = !this.sound.sfxEnabled;
       this.sound.voiceEnabled = this.sound.sfxEnabled;
-      e.currentTarget.textContent = this.sound.sfxEnabled ? '🔊' : '🔇';
+      e.currentTarget.style.opacity = this.sound.sfxEnabled ? '1' : '0.45';
       e.currentTarget.blur();
     });
   }
 
   bindEvents() {
     window.addEventListener('keydown', e => {
-      // Nếu đang ở màn hình chờ và nhấn Enter/Space thì bắt đầu chơi
+      if (document.getElementById('notebookModal').classList.contains('active')) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          this.closeNotebook();
+        }
+        return;
+      }
+
       if (this.state === 'MENU' || this.state === 'GAMEOVER') {
         if (e.key === 'Enter') {
           e.preventDefault();
@@ -135,14 +168,12 @@ class DinoVocabGame {
         return;
       }
 
-      // Kiểm tra phím chữ cái A-Z
       if (e.key.length === 1 && /^[a-zA-Z]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         this.handleLetterInput(e.key.toUpperCase());
       }
     });
 
-    // Cho phép click chuột trực tiếp vào con khủng long để khóa mục tiêu
     this.canvas.addEventListener('click', e => {
       if (this.state !== 'PLAYING') return;
       const rect = this.canvas.getBoundingClientRect();
@@ -152,7 +183,7 @@ class DinoVocabGame {
       const my = (e.clientY - rect.top) * scaleY;
 
       for (const dino of this.dinos) {
-        if (Math.hypot(dino.x - mx, dino.y - my) <= dino.radius + 35) {
+        if (Math.hypot(dino.x - mx, dino.y - my) <= dino.radius + 40) {
           this.setLockedDino(dino);
           break;
         }
@@ -169,23 +200,26 @@ class DinoVocabGame {
     this.killsInWave = 0;
     this.killsNeededForNextWave = 6;
     this.hp = this.maxHp;
+    this.totalKeystrokes = 0;
+    this.correctKeystrokes = 0;
 
     this.dinos = [];
+    this.beams = [];
+    this.shockwaves = [];
     this.bullets = [];
     this.particles = [];
     this.floatingTexts = [];
     this.lockedDino = null;
     this.spawnTimer = 0.5;
-    this.spawnInterval = 3.2;
+    this.spawnInterval = 3.1;
 
     document.getElementById('startOverlay').classList.remove('active');
     document.getElementById('notebookModal').classList.remove('active');
 
-    // Sinh ngay 2 con khủng long đầu tiên để người chơi bắn ngay
     this.spawnDinosaur();
     setTimeout(() => {
       if (this.state === 'PLAYING') this.spawnDinosaur();
-    }, 900);
+    }, 850);
 
     this.updateHUD();
     this.updateActiveTargetBanner();
@@ -198,18 +232,15 @@ class DinoVocabGame {
       pool = getWordsByTopic('all');
     }
 
-    // Ưu tiên từ chưa xuất hiện trên màn hình
     const available = pool.filter(item => !activeWords.has(item.word));
     const candidates = available.length > 0 ? available : pool;
 
-    // Ưu tiên chữ cái bắt đầu khác với các con đang có trên màn hình
     const usedFirstChars = new Set(this.dinos.map(d => d.word[0]));
     const distinctStart = candidates.filter(item => !usedFirstChars.has(item.word[0]));
     const finalPool = distinctStart.length > 0 ? distinctStart : candidates;
 
     const vocabItem = finalPool[Math.floor(Math.random() * finalPool.length)];
 
-    // Chọn chủng loại khủng long
     let type = 'raptor';
     if (forceBoss) {
       type = 'trex';
@@ -221,19 +252,19 @@ class DinoVocabGame {
       type = 'triceratops';
     }
 
-    const minY = type === 'ptero' ? 110 : 195;
-    const maxY = type === 'ptero' ? 270 : this.canvas.height - 95;
+    const minY = type === 'ptero' ? 115 : 210;
+    const maxY = type === 'ptero' ? 265 : this.canvas.height - 95;
     const spawnY = minY + Math.random() * (maxY - minY);
 
-    const baseSpeed = 34 + this.wave * 4.5;
+    const baseSpeed = 35 + this.wave * 4.5;
     const speedMultiplier =
       type === 'trex' ? 0.68 : type === 'triceratops' ? 0.85 : type === 'ptero' ? 1.08 : 1.0;
 
     const dino = new Dinosaur(vocabItem, {
       type,
-      x: this.canvas.width + 60,
+      x: this.canvas.width + 65,
       y: spawnY,
-      targetX: this.turret.x + 28,
+      targetX: this.turret.x + 34,
       targetY: this.turret.y,
       speed: baseSpeed * speedMultiplier,
       wave: this.wave,
@@ -260,7 +291,6 @@ class DinoVocabGame {
 
   useHint() {
     if (this.dinos.length === 0) return;
-    // Nếu chưa khóa con nào, tự khóa con khủng long gần căn cứ nhất
     if (!this.lockedDino) {
       const closest = [...this.dinos].sort((a, b) => a.x - b.x)[0];
       this.setLockedDino(closest);
@@ -269,8 +299,9 @@ class DinoVocabGame {
       const revealedChar = this.lockedDino.revealNextHint();
       if (revealedChar) {
         this.sound.playHint();
+        this.shockwaves.push(new Shockwave(this.lockedDino.x, this.lockedDino.y, '#38bdf8'));
         this.floatingTexts.push(
-          new FloatingText(this.lockedDino.x, this.lockedDino.y - 85, `💡 Hint: ${revealedChar}`, '', '#38bdf8')
+          new FloatingText(this.lockedDino.x, this.lockedDino.y - 95, `SCAN // +${revealedChar}`, '', '#22d3ee')
         );
         this.updateActiveTargetBanner();
       }
@@ -279,54 +310,49 @@ class DinoVocabGame {
 
   handleLetterInput(char) {
     if (this.dinos.length === 0) return;
+    this.totalKeystrokes++;
 
-    // Trường hợp chưa khóa mục tiêu: tìm khủng long khớp ký tự đầu (hoặc ký tự thứ 2 vì ký tự đầu đã lộ sẵn ở Hint)
     if (!this.lockedDino) {
       const sortedByDistance = [...this.dinos].sort((a, b) => a.x - b.x);
 
-      // 1. Tìm con có ký tự cần gõ tiếp theo (thường là word[0]) trùng với phím vừa bấm
       let match = sortedByDistance.find(d => d.getNextExpectedChar() === char);
-
       if (match) {
+        this.correctKeystrokes++;
         this.setLockedDino(match);
         this.fireAtLockedDino(char);
         return;
       }
 
-      // 2. Hỗ trợ thông minh: Vì chữ cái đầu (VD: B _ _ _ _ A) đã hiện sẵn làm Hint,
-      // nếu người chơi bấm luôn chữ cái thứ 2 (word[1]), tự động tính cả word[0] + word[1]
       let secondCharMatch = sortedByDistance.find(
         d => d.typedIndex === 0 && d.word.length > 1 && d.word[1] === char
       );
-
       if (secondCharMatch) {
+        this.correctKeystrokes++;
         this.setLockedDino(secondCharMatch);
-        secondCharMatch.onHitSuccess(); // Tự động hoàn thành chữ đầu tiên
-        this.fireAtLockedDino(char);    // Và bắn luôn chữ thứ 2
+        secondCharMatch.onHitSuccess();
+        this.fireAtLockedDino(char);
         return;
       }
 
-      // Không khớp con nào
       this.sound.playError();
       this.combo = 1;
       this.updateHUD();
       return;
     }
 
-    // Trường hợp đã khóa mục tiêu
     const expected = this.lockedDino.getNextExpectedChar();
     if (expected === char) {
+      this.correctKeystrokes++;
       this.fireAtLockedDino(char);
     } else if (
       this.lockedDino.typedIndex === 0 &&
       this.lockedDino.word.length > 1 &&
       this.lockedDino.word[1] === char
     ) {
-      // Nếu vừa click chọn khủng long và gõ luôn chữ cái thứ 2 sau chữ cái gợi ý đầu
+      this.correctKeystrokes++;
       this.lockedDino.onHitSuccess();
       this.fireAtLockedDino(char);
     } else {
-      // Gõ sai chữ cái
       this.sound.playError();
       this.lockedDino.onHitError();
       this.combo = 1;
@@ -342,13 +368,20 @@ class DinoVocabGame {
     this.turret.aimAt(dino.x, dino.y);
     this.turret.triggerShot();
 
-    // Tạo đạn bay tới khủng long
-    this.bullets.push(new Bullet(this.turret.x + 25, this.turret.y, dino, char));
+    const muzzleX = this.turret.x + Math.cos(this.turret.angle) * 44;
+    const muzzleY = this.turret.y + Math.sin(this.turret.angle) * 44;
+
+    // Tia Railgun Beam tức thời + Hạt Plasma
+    this.beams.push(new LaserBeam(muzzleX, muzzleY, dino.x, dino.y, dino.neonColor));
+    this.bullets.push(new Bullet(muzzleX, muzzleY, dino, char));
+
+    for (let i = 0; i < 6; i++) {
+      this.particles.push(new Particle(dino.x, dino.y, '#22d3ee'));
+    }
 
     dino.onHitSuccess();
     this.sound.playLaser(dino.typedIndex);
 
-    // Cộng điểm mỗi chữ cái bắn trúng
     this.score += 10 * this.combo;
 
     if (dino.dead) {
@@ -360,59 +393,55 @@ class DinoVocabGame {
   }
 
   onDinoKilled(dino) {
-    // Hiệu ứng nổ hạt
-    for (let i = 0; i < 24; i++) {
-      this.particles.push(new Particle(dino.x, dino.y, dino.primaryColor));
-      this.particles.push(new Particle(dino.x, dino.y, '#facc15'));
+    this.screenShake = 8;
+    this.shockwaves.push(new Shockwave(dino.x, dino.y, dino.neonColor));
+
+    for (let i = 0; i < 28; i++) {
+      this.particles.push(new Particle(dino.x, dino.y, dino.neonColor));
+      this.particles.push(new Particle(dino.x, dino.y, '#22d3ee'));
     }
 
     const wordBonus = dino.word.length * 25 * this.combo;
     this.score += wordBonus;
-    this.combo = Math.min(10, this.combo + 1);
+    this.combo = Math.min(12, this.combo + 1);
     this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.killsInWave++;
 
-    // Hiển thị từ hoàn chỉnh + nghĩa tiếng Việt bay lên
     this.floatingTexts.push(
       new FloatingText(
         dino.x,
-        dino.y - 25,
-        `${dino.word} (+${wordBonus})`,
+        dino.y - 30,
+        `${dino.word} +${wordBonus}`,
         `${dino.meaning} ${dino.phonetic}`,
         '#4ade80'
       )
     );
 
-    // Phát âm thanh nổ & đọc phát âm tiếng Anh của từ vừa hoàn thành
     this.sound.playExplosion();
     this.sound.speakWord(dino.word);
 
-    // Lưu vào Sổ tay từ đã học
     this.learnedWords.set(dino.word, dino.vocab);
     document.getElementById('learnedCount').textContent = this.learnedWords.size;
 
-    // Xóa khủng long khỏi danh sách
     this.dinos = this.dinos.filter(d => d !== dino);
     this.lockedDino = null;
 
-    // Kiểm tra lên cấp Wave
     if (this.killsInWave >= this.killsNeededForNextWave) {
       this.wave++;
       this.killsInWave = 0;
       this.killsNeededForNextWave = 6 + this.wave * 2;
-      this.spawnInterval = Math.max(1.4, 3.2 - this.wave * 0.2);
+      this.spawnInterval = Math.max(1.35, 3.1 - this.wave * 0.2);
 
       this.floatingTexts.push(
         new FloatingText(
           this.canvas.width / 2,
           this.canvas.height / 2 - 40,
-          `🔥 WAVE ${this.wave} BẮT ĐẦU!`,
-          'Khủng long nhanh hơn & từ vựng thử thách hơn!',
-          '#38bdf8'
+          `WAVE 0${this.wave} INITIALIZED`,
+          'Tốc độ cơ giới tăng cao & mã khóa phức tạp hơn',
+          '#22d3ee'
         )
       );
 
-      // Xuất hiện T-Rex Boss đầu mỗi Wave từ Wave 2
       this.spawnDinosaur(true);
     } else if (this.dinos.length === 0) {
       this.spawnDinosaur();
@@ -425,24 +454,60 @@ class DinoVocabGame {
   updateHUD() {
     document.getElementById('scoreValue').textContent = this.score.toLocaleString('vi-VN');
     document.getElementById('comboValue').textContent = `x${this.combo}`;
-    document.getElementById('waveValue').textContent = this.wave;
-    document.getElementById('hpValue').textContent =
-      '❤️'.repeat(Math.max(0, this.hp)) + '🖤'.repeat(Math.max(0, this.maxHp - this.hp));
+    document.getElementById('waveValue').textContent = String(this.wave).padStart(2, '0');
+
+    // Cập nhật Accuracy
+    const accEl = document.getElementById('accuracyValue');
+    if (accEl) {
+      const acc =
+        this.totalKeystrokes === 0
+          ? 100
+          : Math.round((this.correctKeystrokes / this.totalKeystrokes) * 100);
+      accEl.textContent = `${acc}%`;
+    }
+
+    // Cập nhật thanh Plasma Shield Cells
+    const hpContainer = document.getElementById('hpValue');
+    const hpText = document.getElementById('hpText');
+    if (hpText) {
+      hpText.textContent = `${Math.max(0, Math.round((this.hp / this.maxHp) * 100))}%`;
+    }
+    if (hpContainer) {
+      hpContainer.innerHTML = '';
+      for (let i = 0; i < this.maxHp; i++) {
+        const cell = document.createElement('span');
+        const isActive = i < this.hp;
+        const isDanger = this.hp <= 2 && isActive;
+        cell.className = `shield-cell ${isActive ? (isDanger ? 'danger' : 'active') : ''}`;
+        hpContainer.appendChild(cell);
+      }
+    }
   }
 
   updateActiveTargetBanner() {
     const meaningEl = document.getElementById('targetMeaning');
     const slotsEl = document.getElementById('targetWordSlots');
+    const statusBadge = document.getElementById('lockStatusBadge');
+    const statusText = document.getElementById('lockStatusText');
     slotsEl.innerHTML = '';
 
     if (!this.lockedDino) {
+      if (statusBadge) statusBadge.classList.remove('locked');
+      if (statusText) statusText.textContent = 'STANDBY // AWAITING KEYSTROKE';
       meaningEl.innerHTML =
-        '⌨️ Hãy gõ <strong>chữ cái đầu tiên</strong> (hoặc chữ tiếp theo) trên bất kỳ con khủng long nào để khóa mục tiêu!';
+        'Nhấn phím chữ cái đầu tiên (VD: <span class="hl-key">B</span>, <span class="hl-key">X</span>...) để khóa mục tiêu & khai hỏa tia Plasma';
       return;
     }
 
     const d = this.lockedDino;
-    meaningEl.innerHTML = `🎯 Đang khóa: <strong>${d.meaning} (${d.pos})</strong> <span class="phonetic">${d.phonetic}</span>`;
+    if (statusBadge) statusBadge.classList.add('locked');
+    if (statusText) statusText.textContent = `TARGET LOCKED // ${d.classTag}`;
+
+    meaningEl.innerHTML = `
+      <strong>${d.meaning}</strong>
+      <span class="pos-badge">${d.pos.toUpperCase()}</span>
+      <span class="phonetic">${d.phonetic}</span>
+    `;
 
     const masked = formatMaskedWord(d.word, d.typedIndex, d.revealedIndices);
     masked.forEach(item => {
@@ -461,7 +526,8 @@ class DinoVocabGame {
     listEl.innerHTML = '';
 
     if (this.learnedWords.size === 0) {
-      listEl.innerHTML = '<p style="color:#94a3b8;grid-column:1/-1;">Chưa có từ nào được bắn hạ. Hãy bắn khủng long để thu thập từ vựng nhé!</p>';
+      listEl.innerHTML =
+        '<p style="color:#64748b;grid-column:1/-1;">Chưa có dữ liệu từ vựng nào được giải mã. Hãy bắn hạ khủng long để thu thập từ vựng vào kho lưu trữ!</p>';
     } else {
       this.learnedWords.forEach(vocab => {
         const card = document.createElement('div');
@@ -471,7 +537,12 @@ class DinoVocabGame {
             <div class="word">${vocab.word} <span class="phonetic">${vocab.phonetic}</span></div>
             <div class="meaning">${vocab.meaning} (${vocab.pos})</div>
           </div>
-          <button class="btn btn-icon" title="Nghe phát âm">🔊</button>
+          <button class="cyber-btn btn-icon-only" title="Nghe phát âm AI">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+          </button>
         `;
         card.querySelector('button').addEventListener('click', () => {
           this.sound.speakWord(vocab.word);
@@ -494,40 +565,50 @@ class DinoVocabGame {
   triggerGameOver() {
     this.state = 'GAMEOVER';
     const overlay = document.getElementById('startOverlay');
-    document.getElementById('overlayTitle').textContent = '💥 Căn Cứ Thất Thủ!';
+    document.getElementById('overlayTitle').textContent = 'SYSTEM BREACHED // GAME OVER';
     document.getElementById('overlayDesc').innerHTML = `
-      Bạn đã đạt <strong>${this.score.toLocaleString('vi-VN')} điểm</strong> tại <strong>Wave ${this.wave}</strong> và chinh phục <strong>${this.learnedWords.size} từ vựng</strong>!<br/>
-      Hãy bấm vào nút <strong>📖 Từ đã học</strong> trên thanh công cụ để nghe lại phát âm hoặc chơi lại ngay.
+      Tổng điểm: <strong>${this.score.toLocaleString('vi-VN')} PTS</strong> // Đợt phòng thủ: <strong>WAVE 0${this.wave}</strong> // Đã giải mã: <strong>${this.learnedWords.size} từ vựng</strong>.<br/>
+      Bạn có thể mở <strong>CODEX</strong> trên thanh điều khiển để nghe lại phát âm các từ vừa học hoặc tái khởi động hệ thống ngay.
     `;
-    document.getElementById('btnStartGame').textContent = '🔄 CHƠI LẠI NGAY';
+    document.getElementById('btnStartGame').innerHTML = `
+      <span>REBOOT DEFENSE MATRIX</span>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+    `;
     overlay.classList.add('active');
   }
 
   update(dt) {
+    this.gridOffset = (this.gridOffset + dt * 38) % 60;
+    if (this.screenShake > 0) {
+      this.screenShake = Math.max(0, this.screenShake - dt * 28);
+    }
+
     if (this.state !== 'PLAYING') return;
 
     this.turret.update(dt);
 
-    // Sinh thêm khủng long theo thời gian
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0 && this.dinos.length < 4 + Math.floor(this.wave / 2)) {
       this.spawnDinosaur();
       this.spawnTimer = this.spawnInterval;
     }
 
-    // Cập nhật khủng long
     for (let i = this.dinos.length - 1; i >= 0; i--) {
       const dino = this.dinos[i];
       dino.update(dt);
 
-      // Kiểm tra khủng long chạm vào hàng rào căn cứ
-      if (dino.x <= this.turret.x + 55) {
+      if (dino.x <= this.turret.x + 60) {
         this.sound.playDamage();
+        this.screenShake = 12;
         this.hp -= dino.type === 'trex' ? 2 : 1;
         this.combo = 1;
 
-        for (let p = 0; p < 18; p++) {
-          this.particles.push(new Particle(dino.x, dino.y, '#ef4444'));
+        this.shockwaves.push(new Shockwave(dino.x, dino.y, '#f43f5e'));
+        for (let p = 0; p < 22; p++) {
+          this.particles.push(new Particle(dino.x, dino.y, '#f43f5e'));
         }
 
         if (this.lockedDino === dino) {
@@ -544,95 +625,154 @@ class DinoVocabGame {
       }
     }
 
-    // Cập nhật đạn
+    for (let i = this.beams.length - 1; i >= 0; i--) {
+      this.beams[i].update(dt);
+      if (this.beams[i].life <= 0) this.beams.splice(i, 1);
+    }
+
+    for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+      this.shockwaves[i].update(dt);
+      if (this.shockwaves[i].life <= 0) this.shockwaves.splice(i, 1);
+    }
+
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       this.bullets[i].update(dt);
-      if (this.bullets[i].done) {
-        this.bullets.splice(i, 1);
-      }
+      if (this.bullets[i].done) this.bullets.splice(i, 1);
     }
 
-    // Cập nhật hạt nổ
     for (let i = this.particles.length - 1; i >= 0; i--) {
       this.particles[i].update(dt);
-      if (this.particles[i].life <= 0) {
-        this.particles.splice(i, 1);
-      }
+      if (this.particles[i].life <= 0) this.particles.splice(i, 1);
     }
 
-    // Cập nhật chữ bay
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
       this.floatingTexts[i].update(dt);
-      if (this.floatingTexts[i].life <= 0) {
-        this.floatingTexts.splice(i, 1);
-      }
+      if (this.floatingTexts[i].life <= 0) this.floatingTexts.splice(i, 1);
     }
   }
 
-  drawBackground(ctx) {
+  drawCyberArena(ctx) {
     const w = this.canvas.width;
     const h = this.canvas.height;
+    const horizonY = h * 0.54;
 
-    // Bầu trời đêm tiền sử
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
-    skyGrad.addColorStop(0, '#090d16');
-    skyGrad.addColorStop(0.55, '#1e1b4b');
-    skyGrad.addColorStop(1, '#064e3b');
+    // 1. Bầu trời Không Gian Số (Deep Cyber Nebula)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+    skyGrad.addColorStop(0, '#020617');
+    skyGrad.addColorStop(0.65, '#091534');
+    skyGrad.addColorStop(1, '#0e2954');
     ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillRect(0, 0, w, horizonY);
 
-    // Các vì sao
+    // Các hạt dữ liệu không gian
     this.stars.forEach(s => {
-      ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
+      ctx.fillStyle = `rgba(56, 189, 248, ${s.alpha})`;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
       ctx.fill();
     });
 
-    // Dãy núi lửa phía xa
-    ctx.fillStyle = '#0f172a';
+    // Dãy núi Wireframe Hologram ở đường chân trời
+    ctx.save();
+    ctx.fillStyle = 'rgba(7, 16, 38, 0.9)';
+    ctx.strokeStyle = 'rgba(34, 211, 238, 0.32)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(0, h * 0.68);
-    ctx.lineTo(220, h * 0.42);
-    ctx.lineTo(440, h * 0.68);
-    ctx.lineTo(720, h * 0.36);
-    ctx.lineTo(980, h * 0.68);
-    ctx.lineTo(w, h * 0.5);
-    ctx.lineTo(w, h);
-    ctx.lineTo(0, h);
+    ctx.moveTo(0, horizonY);
+    ctx.lineTo(140, horizonY - 75);
+    ctx.lineTo(290, horizonY - 20);
+    ctx.lineTo(480, horizonY - 110);
+    ctx.lineTo(690, horizonY - 30);
+    ctx.lineTo(910, horizonY - 95);
+    ctx.lineTo(1120, horizonY - 40);
+    ctx.lineTo(w, horizonY - 70);
+    ctx.lineTo(w, horizonY);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
+    ctx.restore();
 
-    // Mặt đất chiến trường
-    const groundGrad = ctx.createLinearGradient(0, h * 0.65, 0, h);
-    groundGrad.addColorStop(0, '#065f46');
-    groundGrad.addColorStop(1, '#022c22');
+    // 2. Mặt đất Lưới Không Gian 3D (Perspective Cyber Grid)
+    const groundGrad = ctx.createLinearGradient(0, horizonY, 0, h);
+    groundGrad.addColorStop(0, '#061229');
+    groundGrad.addColorStop(1, '#020617');
     ctx.fillStyle = groundGrad;
-    ctx.fillRect(0, h * 0.66, w, h * 0.34);
+    ctx.fillRect(0, horizonY, w, h - horizonY);
 
-    // Vạch lá chắn năng lượng bảo vệ căn cứ
+    // Đường chân trời phát sáng
     ctx.save();
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([10, 8]);
+    ctx.strokeStyle = 'rgba(34, 211, 238, 0.55)';
+    ctx.shadowColor = '#22d3ee';
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(150, 90);
-    ctx.lineTo(150, h - 20);
+    ctx.moveTo(0, horizonY);
+    ctx.lineTo(w, horizonY);
+    ctx.stroke();
+    ctx.restore();
+
+    // Các đường lưới dọc hội tụ (Perspective Vertical Lines)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(34, 211, 238, 0.11)';
+    ctx.lineWidth = 1;
+    const vanishX = w * 0.45;
+    for (let x = -w * 0.4; x <= w * 1.4; x += 65) {
+      ctx.beginPath();
+      ctx.moveTo(vanishX + (x - vanishX) * 0.25, horizonY);
+      ctx.lineTo(x - this.gridOffset, h);
+      ctx.stroke();
+    }
+
+    // Các đường lưới ngang mặt đất
+    for (let i = 1; i <= 7; i++) {
+      const ratio = Math.pow(i / 7, 1.5);
+      const gy = horizonY + (h - horizonY) * ratio;
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(w, gy);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 3. Tường Chắn Năng Lượng Bảo Vệ Căn Cứ (Plasma Defense Barrier)
+    const barrierX = 165;
+    const shieldGrad = ctx.createLinearGradient(barrierX - 24, 0, barrierX + 8, 0);
+    shieldGrad.addColorStop(0, 'rgba(34, 211, 238, 0)');
+    shieldGrad.addColorStop(1, 'rgba(34, 211, 238, 0.14)');
+    ctx.fillStyle = shieldGrad;
+    ctx.fillRect(barrierX - 24, 60, 26, h - 80);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(34, 211, 238, 0.65)';
+    ctx.shadowColor = '#22d3ee';
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([12, 8]);
+    ctx.beginPath();
+    ctx.moveTo(barrierX, 60);
+    ctx.lineTo(barrierX, h - 20);
     ctx.stroke();
     ctx.restore();
   }
 
   draw() {
     const ctx = this.ctx;
+    ctx.save();
+
+    if (this.screenShake > 0) {
+      const sx = (Math.random() - 0.5) * this.screenShake;
+      const sy = (Math.random() - 0.5) * this.screenShake;
+      ctx.translate(sx, sy);
+    }
+
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.drawCyberArena(ctx);
 
-    this.drawBackground(ctx);
-
-    // Vẽ đường tia ngắm tới khủng long đang khóa
+    // Tia Laser ngắm khóa mục tiêu (Target Lock Sight)
     if (this.lockedDino) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(250, 204, 21, 0.28)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(250, 204, 21, 0.32)';
+      ctx.lineWidth = 1.6;
       ctx.setLineDash([6, 6]);
       ctx.beginPath();
       ctx.moveTo(this.turret.x, this.turret.y);
@@ -641,10 +781,16 @@ class DinoVocabGame {
       ctx.restore();
     }
 
-    // Vẽ xạ thủ
+    // Vẽ tia Railgun Beam
+    this.beams.forEach(b => b.draw(ctx));
+
+    // Vẽ sóng xung kích Shockwave
+    this.shockwaves.forEach(sw => sw.draw(ctx));
+
+    // Vẽ tháp pháo Mecha-Turret
     this.turret.draw(ctx);
 
-    // Sắp xếp khủng long theo trục Y để con đứng dưới đè lên con đứng trên tự nhiên
+    // Vẽ các Khủng Long Cơ Giới theo thứ tự chiều sâu Y
     const sortedDinos = [...this.dinos].sort((a, b) => a.y - b.y);
     sortedDinos.forEach(d => d.draw(ctx));
 
@@ -652,6 +798,8 @@ class DinoVocabGame {
     this.bullets.forEach(b => b.draw(ctx));
     this.particles.forEach(p => p.draw(ctx));
     this.floatingTexts.forEach(ft => ft.draw(ctx));
+
+    ctx.restore();
   }
 
   loop(timestamp) {

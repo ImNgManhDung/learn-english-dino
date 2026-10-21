@@ -3,139 +3,254 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dino Vocab Shooter — Bắn Khủng Long Học Từ Vựng Tiếng Anh</title>
+  <title>JURASSIC.AI // Cyber-Dino Vocab Defense</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Orbitron:wght@600;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
-  <div class="app-container">
-    <!-- Thanh HUD trên cùng -->
-    <header class="hud-bar">
-      <div class="brand">
-        <span class="brand-icon">🦖</span>
-        <div>
-          <h1>DINO VOCAB SHOOTER</h1>
-          <p class="subtitle">Gõ đúng chữ cái tiếng Anh (Hint: X..., B...) để bắn hạ khủng long</p>
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+
+  <div class="cyber-shell">
+    <!-- TOP TACTICAL HUD -->
+    <header class="tactical-hud">
+      <!-- Brand & System Status -->
+      <div class="hud-module brand-module">
+        <div class="core-reactor">
+          <svg viewBox="0 0 36 36" class="reactor-svg">
+            <polygon points="18,2 33,10 33,26 18,34 3,26 3,10" class="hex-outer" />
+            <polygon points="18,7 28,13 28,23 18,29 8,23 8,13" class="hex-inner" />
+            <circle cx="18" cy="18" r="4" class="hex-core" />
+          </svg>
+        </div>
+        <div class="brand-meta">
+          <div class="brand-tag">NEURAL TYPING DEFENSE // v2.5</div>
+          <h1 class="brand-title">JURASSIC<span>.AI</span></h1>
         </div>
       </div>
 
-      <div class="controls-bar">
-        <label class="control-item">
-          <span>Chủ đề:</span>
-          <select id="topicSelect" aria-label="Chọn chủ đề từ vựng"></select>
-        </label>
+      <!-- Configuration Controls (Topic & Hint Segmented Pills) -->
+      <div class="hud-module config-module">
+        <div class="control-group">
+          <span class="control-label">SECTOR TOPIC</span>
+          <div class="select-wrapper">
+            <select id="topicSelect" aria-label="Chọn chủ đề từ vựng"></select>
+            <svg class="select-arrow" viewBox="0 0 24 24" width="14" height="14">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
 
-        <label class="control-item">
-          <span>Gợi ý (Hint):</span>
-          <select id="hintModeSelect" aria-label="Chọn mức độ gợi ý">
-            <option value="easy">Dễ (B _ N _ _ A)</option>
-            <option value="medium" selected>Vừa (B _ _ A _ _)</option>
-            <option value="hard">Khó (B _ _ _ _ _)</option>
+        <div class="divider-v"></div>
+
+        <div class="control-group">
+          <span class="control-label">NEURAL HINT MASK</span>
+          <div class="segmented-pills" id="hintModeGroup" role="radiogroup" aria-label="Mức độ gợi ý">
+            <button type="button" class="seg-pill" data-hint="easy" title="Lộ nhiều chữ cái (B _ N _ _ A)">EASY</button>
+            <button type="button" class="seg-pill active" data-hint="medium" title="Lộ vừa phải (B _ _ A _ _)">MEDIUM</button>
+            <button type="button" class="seg-pill" data-hint="hard" title="Chỉ lộ chữ đầu (B _ _ _ _ _)">HARD</button>
+          </div>
+          <!-- Hidden select for backward compatibility -->
+          <select id="hintModeSelect" style="display:none;">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
           </select>
-        </label>
-
-        <button id="btnHint" class="btn btn-warning" title="Mở thêm 1 chữ cái gợi ý (Phím Tab)">
-          💡 Gợi ý chữ <kbd>Tab</kbd>
-        </button>
-
-        <button id="btnUnlock" class="btn btn-secondary" title="Đổi mục tiêu khủng long khác (Phím Esc)">
-          🎯 Đổi mục tiêu <kbd>Esc</kbd>
-        </button>
-
-        <button id="btnNotebook" class="btn btn-info" title="Xem danh sách từ vựng đã bắn">
-          📖 Từ đã học (<span id="learnedCount">0</span>)
-        </button>
-
-        <button id="btnSound" class="btn btn-icon" title="Bật/Tắt âm thanh & giọng đọc">
-          🔊
-        </button>
+        </div>
       </div>
 
-      <div class="stats-bar">
-        <div class="stat-box">
-          <span class="stat-label">ĐIỂM SỐ</span>
-          <span id="scoreValue" class="stat-val score">0</span>
+      <!-- Telemetry Stats (Score, Combo, Wave, Shield) -->
+      <div class="hud-module telemetry-module">
+        <div class="telemetry-item">
+          <span class="telemetry-label">SCORE</span>
+          <span id="scoreValue" class="telemetry-val val-cyan">0</span>
         </div>
-        <div class="stat-box">
-          <span class="stat-label">COMBO</span>
-          <span id="comboValue" class="stat-val combo">x1</span>
+
+        <div class="telemetry-item combo-box">
+          <span class="telemetry-label">OVERDRIVE</span>
+          <span id="comboValue" class="telemetry-val val-gold">x1</span>
         </div>
-        <div class="stat-box">
-          <span class="stat-label">ĐỢT (WAVE)</span>
-          <span id="waveValue" class="stat-val wave">1</span>
+
+        <div class="telemetry-item">
+          <span class="telemetry-label">WAVE</span>
+          <span id="waveValue" class="telemetry-val val-purple">01</span>
         </div>
-        <div class="stat-box">
-          <span class="stat-label">CĂN CỨ</span>
-          <span id="hpValue" class="stat-val hp">❤️❤️❤️❤️❤️</span>
+
+        <div class="telemetry-item shield-box">
+          <div class="shield-header">
+            <span class="telemetry-label">BASE SHIELD</span>
+            <span id="hpText" class="shield-pct">100%</span>
+          </div>
+          <div id="hpValue" class="shield-bars">
+            <span class="shield-cell active"></span>
+            <span class="shield-cell active"></span>
+            <span class="shield-cell active"></span>
+            <span class="shield-cell active"></span>
+            <span class="shield-cell active"></span>
+          </div>
         </div>
+      </div>
+
+      <!-- Tactical Quick Actions -->
+      <div class="hud-module actions-module">
+        <button id="btnHint" class="cyber-btn btn-amber" title="Mở 1 ký tự ẩn (Phím Tab)">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>
+          </svg>
+          <span>PULSE HINT</span>
+          <kbd>TAB</kbd>
+        </button>
+
+        <button id="btnUnlock" class="cyber-btn btn-slate" title="Đổi mục tiêu khủng long (Phím Esc)">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9"/>
+            <line x1="12" y1="3" x2="12" y2="7"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+            <line x1="3" y1="12" x2="7" y2="12"/>
+            <line x1="17" y1="12" x2="21" y2="12"/>
+          </svg>
+          <span>UNLOCK</span>
+          <kbd>ESC</kbd>
+        </button>
+
+        <button id="btnNotebook" class="cyber-btn btn-cyan" title="Kho dữ liệu từ vựng đã giải mã">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+          <span>CODEX</span>
+          <span id="learnedCount" class="codex-badge">0</span>
+        </button>
+
+        <button id="btnSound" class="cyber-btn btn-icon-only" title="Bật / Tắt Âm thanh & Giọng đọc AI" aria-label="Toggle Sound">
+          <svg id="soundIconOn" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+          </svg>
+        </button>
       </div>
     </header>
 
-    <!-- Khu vực chiến trường Canvas -->
-    <main class="stage-wrapper">
-      <canvas id="gameCanvas" width="1200" height="580"></canvas>
-
-      <!-- Hộp hiển thị Từ Đang Nhắm Bắn (Active Target Box) -->
-      <div id="activeTargetBanner" class="active-target-banner">
-        <div class="target-meaning" id="targetMeaning">
-          ⌨️ Hãy gõ <strong>chữ cái đầu tiên</strong> (hoặc chữ tiếp theo) trên bất kỳ con khủng long nào để khóa mục tiêu!
-        </div>
-        <div class="target-word-slots" id="targetWordSlots"></div>
+    <!-- MAIN HOLOGRAPHIC BATTLEFIELD -->
+    <main class="battlefield-frame">
+      <div class="corner-accents">
+        <span class="corner tl"></span>
+        <span class="corner tr"></span>
+        <span class="corner bl"></span>
+        <span class="corner br"></span>
       </div>
 
-      <!-- Overlay Màn hình Bắt đầu / Game Over -->
-      <div id="startOverlay" class="overlay active">
-        <div class="modal-card">
-          <div class="modal-badge">🎮 HỌC TỪ VỰNG QUA PHẢN XẠ GÕ PHÍM</div>
-          <h2 id="overlayTitle">Sẵn Sàng Săn Khủng Long?</h2>
-          <p id="overlayDesc">
-            Mỗi con khủng long mang theo <strong>Nghĩa tiếng Việt</strong> và <strong>Từ tiếng Anh ẩn ký tự</strong> (ví dụ: <code>Quả chuối — B _ _ _ _ A</code> hoặc <code>Đàn mộc cầm — X _ _ _ _ _ _ _ _</code>).<br/>
-            Hãy gõ đúng các chữ cái trên bàn phím để bắn tia Plasma tiêu diệt chúng và nghe phát âm chuẩn!
+      <canvas id="gameCanvas" width="1280" height="580"></canvas>
+
+      <!-- BOTTOM NEURAL KEYCAP DOCK -->
+      <section id="activeTargetBanner" class="neural-dock">
+        <div class="dock-left">
+          <div class="lock-indicator" id="lockStatusBadge">
+            <span class="pulse-dot"></span>
+            <span id="lockStatusText">STANDBY // AWAITING KEYSTROKE</span>
+          </div>
+          <div class="target-Meaning-wrap" id="targetMeaning">
+            Nhấn phím chữ cái đầu tiên (VD: <span class="hl-key">B</span>, <span class="hl-key">X</span>...) để khóa mục tiêu & khai hỏa tia Plasma
+          </div>
+        </div>
+
+        <div class="dock-center">
+          <div class="target-word-slots" id="targetWordSlots"></div>
+        </div>
+
+        <div class="dock-right">
+          <div class="Accuracy-chip">
+            <span class="chip-label">ACCURACY</span>
+            <span id="accuracyValue" class="chip-val">100%</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- START / GAME OVER HOLOGRAPHIC OVERLAY -->
+      <div id="startOverlay" class="holo-overlay active">
+        <div class="holo-modal">
+          <div class="holo-scanner-line"></div>
+          <div class="modal-top-chip">
+            <span class="chip-dot"></span>
+            AI VOCABULARY COMBAT SIMULATOR
+          </div>
+
+          <h2 id="overlayTitle" class="modal-hero-title">NEURAL DINO DEFENSE</h2>
+          <p id="overlayDesc" class="modal-hero-desc">
+            Binh đoàn Khủng Long Cơ Giới đang tiến về lõi năng lượng. Mỗi mục tiêu mang theo <strong>Nghĩa Tiếng Việt</strong> và mã khóa <strong>Từ Vựng Tiếng Anh ẩn ký tự</strong> (<code>Quả chuối // B _ _ _ _ A</code> hoặc <code>Đàn mộc cầm // X _ _ _ _ _ _ _ _</code>).
           </p>
 
-          <div class="how-to-grid">
-            <div class="how-item">
-              <span class="how-icon">⌨️</span>
-              <div>
-                <strong>Gõ A - Z</strong>
-                <p>Khóa khủng long & bắn từng chữ cái</p>
+          <div class="tactical-cards">
+            <div class="tac-card">
+              <div class="tac-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="4" width="20" height="16" rx="2"/>
+                  <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>
+                </svg>
+              </div>
+              <div class="tac-info">
+                <strong>LOCK & FIRE [A - Z]</strong>
+                <p>Gõ chữ cái đầu (hoặc chữ tiếp theo) để khóa mục tiêu và bắn tia Railgun Plasma.</p>
               </div>
             </div>
-            <div class="how-item">
-              <span class="how-icon">💡</span>
-              <div>
-                <strong>Phím Tab</strong>
-                <p>Mở 1 chữ cái đang ẩn nếu bí từ</p>
+
+            <div class="tac-card">
+              <div class="tac-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+              </div>
+              <div class="tac-info">
+                <strong>NEURAL SCAN [TAB]</strong>
+                <p>Kích hoạt sóng xung kích giải mã 1 ký tự đang ẩn khi gặp từ vựng khó.</p>
               </div>
             </div>
-            <div class="how-item">
-              <span class="how-icon">🔄</span>
-              <div>
-                <strong>Phím Esc / Backspace</strong>
-                <p>Bỏ khóa để bắn con khủng long gần hơn</p>
+
+            <div class="tac-card">
+              <div class="tac-icon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+              </div>
+              <div class="tac-info">
+                <strong>AI VOICE SYNTHESIS</strong>
+                <p>Tự động phát âm chuẩn US/UK kèm phiên âm IPA ngay khi hạ gục mục tiêu.</p>
               </div>
             </div>
           </div>
 
-          <div class="overlay-actions">
-            <button id="btnStartGame" class="btn btn-primary btn-lg">
-              🚀 BẮT ĐẦU CHƠI NGAY
+          <div class="modal-cta-row">
+            <button id="btnStartGame" class="cyber-cta-btn">
+              <span>INITIALIZE COMBAT LINK</span>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
             </button>
+            <div class="cta-subhint">Hoặc nhấn phím <kbd>ENTER</kbd> để bắt đầu ngay</div>
           </div>
         </div>
       </div>
 
-      <!-- Modal Sổ tay Từ vựng đã học -->
-      <div id="notebookModal" class="overlay">
-        <div class="modal-card notebook-card">
-          <div class="notebook-header">
-            <h3>📖 Sổ Tay Từ Vựng Đã Chinh Phục</h3>
-            <button id="btnCloseNotebook" class="btn btn-secondary">Đóng ✕</button>
+      <!-- VOCAB CODEX MODAL -->
+      <div id="notebookModal" class="holo-overlay">
+        <div class="holo-modal codex-modal">
+          <div class="codex-header">
+            <div>
+              <div class="modal-top-chip">DECRYPTED VOCABULARY ARCHIVE</div>
+              <h3>NEURAL WORD CODEX</h3>
+            </div>
+            <button id="btnCloseNotebook" class="cyber-btn btn-slate">
+              <span>CLOSE</span>
+              <kbd>ESC</kbd>
+            </button>
           </div>
-          <p class="notebook-sub">Bấm vào nút 🔊 để nghe lại phát âm chuẩn tiếng Anh.</p>
-          <div id="notebookList" class="notebook-list"></div>
+          <p class="codex-subtitle">Danh sách từ vựng đã giải mã thành công trong phiên chiến đấu. Bấm biểu tượng âm thanh để nghe phát âm AI.</p>
+          <div id="notebookList" class="codex-grid"></div>
         </div>
       </div>
     </main>
