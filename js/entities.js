@@ -1,5 +1,5 @@
 // Thực thể Đồ họa Cyber-Jurassic Hologram: Mecha-Turret, Cyber-Dinosaur, Railgun Beam, Shockwave, Particle
-import { generateHintIndices, formatMaskedWord } from './vocab.js';
+import { generateHintIndices, formatMaskedWord } from './vocab.js?v=2.5';
 
 export class Turret {
   constructor(x, y) {

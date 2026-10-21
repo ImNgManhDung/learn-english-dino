@@ -1,7 +1,7 @@
 // Vòng lặp chính & điều khiển trò chơi JURASSIC.AI // Cyber-Dino Vocab Defense
-import { VOCAB_TOPICS, getWordsByTopic, formatMaskedWord, generateHintIndices } from './vocab.js';
-import { SoundManager } from './sound.js';
-import { Turret, Dinosaur, LaserBeam, Shockwave, Bullet, Particle, FloatingText } from './entities.js';
+import { VOCAB_TOPICS, getWordsByTopic, formatMaskedWord, generateHintIndices } from './vocab.js?v=2.5';
+import { SoundManager } from './sound.js?v=2.5';
+import { Turret, Dinosaur, LaserBeam, Shockwave, Bullet, Particle, FloatingText } from './entities.js?v=2.5';
 
 class DinoVocabGame {
   constructor() {
