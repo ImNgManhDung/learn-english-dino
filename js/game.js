@@ -41,6 +41,7 @@ class DinoVocabGame {
     this.screenShake = 0;
 
     this.learnedWords = new Map();
+    this.loadCodexFromStorage();
 
     // Hạt bụi năng lượng lơ lửng trong không gian
     this.stars = Array.from({ length: 55 }, () => ({
@@ -134,6 +135,11 @@ class DinoVocabGame {
       e.currentTarget.style.opacity = this.sound.sfxEnabled ? '1' : '0.45';
       e.currentTarget.blur();
     });
+
+    const learnedEl = document.getElementById('learnedCount');
+    if (learnedEl) {
+      learnedEl.textContent = this.learnedWords.size;
+    }
   }
 
   bindEvents() {
@@ -168,9 +174,24 @@ class DinoVocabGame {
         return;
       }
 
-      if (e.key.length === 1 && /^[a-zA-Z]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        this.handleLetterInput(e.key.toUpperCase());
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        let letter = null;
+        if (e.code && /^Key([A-Z])$/.test(e.code)) {
+          letter = e.code.slice(3);
+        } else if (e.key && e.key.length === 1) {
+          const normalized = e.key
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/gi, 'd');
+          if (/^[a-zA-Z]$/.test(normalized)) {
+            letter = normalized.toUpperCase();
+          }
+        }
+
+        if (letter) {
+          e.preventDefault();
+          this.handleLetterInput(letter);
+        }
       }
     });
 
@@ -189,6 +210,32 @@ class DinoVocabGame {
         }
       }
     });
+  }
+
+  loadCodexFromStorage() {
+    try {
+      const raw = localStorage.getItem('jurassic_codex_v2');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(item => {
+          if (item && item.word) {
+            this.learnedWords.set(item.word, item);
+          }
+        });
+      }
+    } catch (e) {
+      // Bỏ qua nếu localStorage bị chặn
+    }
+  }
+
+  saveCodexToStorage() {
+    try {
+      const data = Array.from(this.learnedWords.values());
+      localStorage.setItem('jurassic_codex_v2', JSON.stringify(data));
+    } catch (e) {
+      // Bỏ qua nếu localStorage bị chặn
+    }
   }
 
   startNewGame() {
@@ -227,7 +274,12 @@ class DinoVocabGame {
 
   spawnDinosaur(forceBoss = false) {
     const activeWords = new Set(this.dinos.map(d => d.word));
-    let pool = getWordsByTopic(this.selectedTopic, 3, forceBoss ? 14 : Math.min(12, 6 + this.wave));
+    const minLen = forceBoss ? 8 : 3;
+    const maxLen = forceBoss ? 14 : Math.min(12, 6 + this.wave);
+    let pool = getWordsByTopic(this.selectedTopic, minLen, maxLen);
+    if (pool.length === 0) {
+      pool = getWordsByTopic(this.selectedTopic, 3, maxLen);
+    }
     if (pool.length === 0) {
       pool = getWordsByTopic('all');
     }
@@ -298,11 +350,21 @@ class DinoVocabGame {
     if (this.lockedDino) {
       const revealedChar = this.lockedDino.revealNextHint();
       if (revealedChar) {
+        const hintPenalty = 15;
+        this.score = Math.max(0, this.score - hintPenalty);
+        this.combo = Math.max(1, this.combo - 1);
         this.sound.playHint();
         this.shockwaves.push(new Shockwave(this.lockedDino.x, this.lockedDino.y, '#38bdf8'));
         this.floatingTexts.push(
-          new FloatingText(this.lockedDino.x, this.lockedDino.y - 95, `SCAN // +${revealedChar}`, '', '#22d3ee')
+          new FloatingText(
+            this.lockedDino.x,
+            this.lockedDino.y - 95,
+            `SCAN // +${revealedChar}`,
+            `-${hintPenalty} PTS`,
+            '#22d3ee'
+          )
         );
+        this.updateHUD();
         this.updateActiveTargetBanner();
       }
     }
@@ -312,24 +374,14 @@ class DinoVocabGame {
     if (this.dinos.length === 0) return;
     this.totalKeystrokes++;
 
+    // Quy tắc thống nhất: Gõ tuần tự từng ký tự từ đầu đến cuối (0 -> word.length - 1).
+    // Khi chưa khóa mục tiêu, ưu tiên khủng long gần tháp pháo nhất có chữ cái đầu khớp phím gõ.
     if (!this.lockedDino) {
       const sortedByDistance = [...this.dinos].sort((a, b) => a.x - b.x);
-
-      let match = sortedByDistance.find(d => d.getNextExpectedChar() === char);
+      const match = sortedByDistance.find(d => d.getNextExpectedChar() === char);
       if (match) {
         this.correctKeystrokes++;
         this.setLockedDino(match);
-        this.fireAtLockedDino(char);
-        return;
-      }
-
-      let secondCharMatch = sortedByDistance.find(
-        d => d.typedIndex === 0 && d.word.length > 1 && d.word[1] === char
-      );
-      if (secondCharMatch) {
-        this.correctKeystrokes++;
-        this.setLockedDino(secondCharMatch);
-        secondCharMatch.onHitSuccess();
         this.fireAtLockedDino(char);
         return;
       }
@@ -343,14 +395,6 @@ class DinoVocabGame {
     const expected = this.lockedDino.getNextExpectedChar();
     if (expected === char) {
       this.correctKeystrokes++;
-      this.fireAtLockedDino(char);
-    } else if (
-      this.lockedDino.typedIndex === 0 &&
-      this.lockedDino.word.length > 1 &&
-      this.lockedDino.word[1] === char
-    ) {
-      this.correctKeystrokes++;
-      this.lockedDino.onHitSuccess();
       this.fireAtLockedDino(char);
     } else {
       this.sound.playError();
@@ -421,6 +465,7 @@ class DinoVocabGame {
     this.sound.speakWord(dino.word);
 
     this.learnedWords.set(dino.word, dino.vocab);
+    this.saveCodexToStorage();
     document.getElementById('learnedCount').textContent = this.learnedWords.size;
 
     this.dinos = this.dinos.filter(d => d !== dino);
@@ -429,7 +474,7 @@ class DinoVocabGame {
     if (this.killsInWave >= this.killsNeededForNextWave) {
       this.wave++;
       this.killsInWave = 0;
-      this.killsNeededForNextWave = 6 + this.wave * 2;
+      this.killsNeededForNextWave = 6 + (this.wave - 1) * 2;
       this.spawnInterval = Math.max(1.35, 3.1 - this.wave * 0.2);
 
       this.floatingTexts.push(

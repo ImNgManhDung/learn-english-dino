@@ -235,6 +235,11 @@ export class Dinosaur {
     this.x += (dx / dist) * currentSpeed * dt;
     this.baseY += (dy / dist) * currentSpeed * dt;
 
+    // Chặn khủng long bị knockback đẩy lùi ra ngoài mép phải màn hình
+    if (currentSpeed < 0 && this.x > 1225) {
+      this.x = 1225;
+    }
+
     if (this.type === 'ptero') {
       this.y = this.baseY + Math.sin(this.animTime * 1.1) * 14;
     } else {
